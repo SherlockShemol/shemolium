@@ -13,11 +13,11 @@
     "url": "https://shemol.tech"
   },
   "scripts": {
-    "sync": "tsx scripts/sync-notion.ts",
-    "sync:force": "tsx scripts/sync-notion.ts --force",
-    "dev": "tsx scripts/sync-notion.ts && next dev",
+    "sync-content": "tsx scripts/sync-content.ts",
+    "upload-images": "tsx scripts/upload-images.ts",
+    "dev": "tsx scripts/sync-content.ts && next dev",
     "dev:skip-sync": "next dev",
-    "build": "tsx scripts/sync-notion.ts && tsx scripts/generate-rss.ts && next build",
+    "build": "tsx scripts/sync-content.ts && tsx scripts/generate-rss.ts && next build",
     "start": "next start",
     "lint": "eslint .",
     "postbuild": "next-sitemap --config next-sitemap.config.cjs"
@@ -28,6 +28,8 @@
     "dayjs": "^1.11.10",
     "feed": "^4.2.2",
     "gitalk": "^1.8.0",
+    "gray-matter": "^4.0.3",
+    "heti": "^0.9.6",
     "mermaid": "^10.6.1",
     "next": "^14.0.2",
     "notion-client": "^6.16.0",
@@ -36,9 +38,14 @@
     "react": "^18.2.0",
     "react-cusdis": "^2.1.3",
     "react-dom": "^18.2.0",
+    "react-markdown": "^10.1.0",
     "react-notion-x": "^6.16.0",
     "react-tweet-embed": "^2.0.0",
     "react-use": "^17.4.0",
+    "rehype-highlight": "^7.0.2",
+    "rehype-raw": "^7.0.0",
+    "remark-breaks": "^4.0.0",
+    "remark-gfm": "^4.0.1",
     "use-ackee": "^3.0.1"
   },
   "devDependencies": {
@@ -50,12 +57,12 @@
     "autoprefixer": "^10.4.16",
     "eslint": "^9.0.0",
     "eslint-config-next": "^15.0.0",
-    "typescript-eslint": "^8.0.0",
     "next-sitemap": "^4.2.3",
     "postcss": "^8.4.31",
     "tailwindcss": "^3.3.5",
     "tsx": "^4.21.0",
-    "typescript": "^5.9.3"
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.0.0"
   },
   "bugs": {
     "url": "https://github.com/SherlockShemol/shemolium/issues",

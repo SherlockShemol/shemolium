@@ -3,7 +3,7 @@
  * RSS Feed Generator
  * 
  * Generates a static RSS feed (Atom format) at build time.
- * Reads cached Notion data and converts blocks to HTML for full-text feed.
+ * Reads local Markdown files from Blog Database/ and converts to HTML.
  * 
  * Usage:
  *   pnpm tsx scripts/generate-rss.ts
@@ -12,289 +12,84 @@
 import fs from 'fs'
 import path from 'path'
 import { Feed } from 'feed'
+import matter from 'gray-matter'
 import BLOG from '../blog.config'
 
-interface Post {
-  id: string
+interface FrontMatter {
   title?: string
   slug?: string
   summary?: string
-  date?: number
-  type?: string[]
-  status?: string[]
+  date?: string
+  type?: string | string[]
+  status?: string | string[]
 }
 
-interface NotionBlock {
-  type?: string
-  properties?: {
-    title?: unknown[][]
-    caption?: unknown[][]
-    source?: unknown[][]
-    language?: unknown[][]
-    checked?: unknown[][]
-    [key: string]: unknown[][] | undefined
-  }
-  format?: {
-    page_icon?: string
-    display_source?: string
-    [key: string]: unknown
-  }
-  content?: string[]
-}
-
-interface BlockMap {
-  block: Record<string, { value?: NotionBlock }>
-}
-
-type RichTextItem = [string, unknown[]?]
-
-// Cache paths
-const CACHE_DIR = path.join(process.cwd(), '.cache')
-const POSTS_CACHE_FILE = path.join(CACHE_DIR, 'posts.json')
-const BLOCKS_DIR = path.join(CACHE_DIR, 'blocks')
-
-// Output path
+const BLOG_DIR = path.join(process.cwd(), 'Blog Database')
 const OUTPUT_FILE = path.join(process.cwd(), 'public', 'feed.xml')
 
 /**
- * Convert Notion rich text array to plain text
+ * Normalize a frontmatter value to string array
  */
-function richTextToPlain(richText: unknown[][] | undefined): string {
-  if (!richText || !Array.isArray(richText)) return ''
-  return richText.map((item: unknown[]) => (item[0] as string) || '').join('')
+function toStringArray(value: string | string[] | undefined): string[] {
+  if (!value) return []
+  if (Array.isArray(value)) return value
+  return [value]
 }
 
 /**
- * Convert Notion rich text array to HTML with formatting
+ * Simple Markdown to HTML conversion (for RSS content)
  */
-function richTextToHtml(richText: unknown[][] | undefined): string {
-  if (!richText || !Array.isArray(richText)) return ''
-  
-  return (richText as RichTextItem[]).map(item => {
-    let text = item[0] || ''
-    const formats = (item[1] || []) as unknown[][]
-    
-    // Escape HTML entities
-    text = text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-    
-    // Apply formatting
-    for (const format of formats) {
-      const type = format[0] as string
-      switch (type) {
-        case 'b': // bold
-          text = `<strong>${text}</strong>`
-          break
-        case 'i': // italic
-          text = `<em>${text}</em>`
-          break
-        case 's': // strikethrough
-          text = `<del>${text}</del>`
-          break
-        case 'c': // code
-          text = `<code>${text}</code>`
-          break
-        case 'a': { // link
-          const url = format[1] as string
-          text = `<a href="${url}">${text}</a>`
-          break
-        }
-        case '_': // underline
-          text = `<u>${text}</u>`
-          break
-      }
-    }
-    
-    return text
-  }).join('')
-}
+function markdownToHtml(md: string): string {
+  let html = md
 
-/**
- * Get block content (title/text property)
- */
-function getBlockContent(block: NotionBlock): string {
-  const props = block.properties
-  if (!props) return ''
-  
-  // Try different property names
-  if (props.title) return richTextToHtml(props.title)
-  if (props.caption) return richTextToHtml(props.caption)
-  
-  return ''
-}
+  // Rewrite image paths to R2
+  const R2_BASE_URL = 'https://pub-187e5a9ad2b040c7aa8e0208d1291b32.r2.dev'
+  html = html.replace(
+    /!\[([^\]]*)\]\(\.\.\/_assets\/([^)]+)\)/g,
+    (_, alt, filename) => `<img src="${R2_BASE_URL}/${encodeURIComponent(filename).replace(/%20/g, '+')}" alt="${alt}" />`
+  )
 
-/**
- * Convert a single Notion block to HTML
- */
-function blockToHtml(block: NotionBlock): string {
-  const type = block.type
-  const content = getBlockContent(block)
-  
-  switch (type) {
-    case 'text':
-    case 'paragraph':
-      return content ? `<p>${content}</p>` : ''
-    
-    case 'header':
-    case 'heading_1':
-      return `<h1>${content}</h1>`
-    
-    case 'sub_header':
-    case 'heading_2':
-      return `<h2>${content}</h2>`
-    
-    case 'sub_sub_header':
-    case 'heading_3':
-      return `<h3>${content}</h3>`
-    
-    case 'bulleted_list':
-    case 'bulleted_list_item':
-      return `<li>${content}</li>`
-    
-    case 'numbered_list':
-    case 'numbered_list_item':
-      return `<li>${content}</li>`
-    
-    case 'to_do': {
-      const checked = block.properties?.checked?.[0]?.[0] === 'Yes'
-      return `<li><input type="checkbox" ${checked ? 'checked' : ''} disabled> ${content}</li>`
-    }
-    
-    case 'toggle':
-    case 'toggle_nobelium':
-      return `<details><summary>${content}</summary></details>`
-    
-    case 'quote':
-      return `<blockquote>${content}</blockquote>`
-    
-    case 'callout': {
-      const icon = block.format?.page_icon || ''
-      return `<div class="callout">${icon} ${content}</div>`
-    }
-    
-    case 'code': {
-      const language = (block.properties?.language?.[0]?.[0] as string) || ''
-      const code = richTextToPlain(block.properties?.title)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-      return `<pre><code class="language-${language}">${code}</code></pre>`
-    }
-    
-    case 'image': {
-      const src = (block.properties?.source?.[0]?.[0] as string) || block.format?.display_source || ''
-      const caption = richTextToPlain(block.properties?.caption)
-      if (!src) return ''
-      return `<figure><img src="${src}" alt="${caption}" />${caption ? `<figcaption>${caption}</figcaption>` : ''}</figure>`
-    }
-    
-    case 'video': {
-      const videoSrc = (block.properties?.source?.[0]?.[0] as string) || block.format?.display_source || ''
-      if (!videoSrc) return ''
-      return `<p><a href="${videoSrc}">[Video]</a></p>`
-    }
-    
-    case 'embed':
-    case 'bookmark': {
-      const embedUrl = (block.properties?.source?.[0]?.[0] as string) || block.format?.display_source || ''
-      const embedTitle = richTextToPlain(block.properties?.title) || embedUrl
-      if (!embedUrl) return ''
-      return `<p><a href="${embedUrl}">${embedTitle}</a></p>`
-    }
-    
-    case 'divider':
-      return '<hr />'
-    
-    case 'table_of_contents':
-      return '' // Skip TOC in RSS
-    
-    case 'column_list':
-    case 'column':
-      return '' // Will be handled by children
-    
-    default:
-      // For unknown types, try to extract content
-      return content ? `<p>${content}</p>` : ''
-  }
-}
+  // Headers
+  html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>')
+  html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>')
+  html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>')
 
-/**
- * Render all blocks in a page to HTML
- */
-function renderBlocksToHtml(blockMap: BlockMap, pageId: string): string {
-  if (!blockMap || !blockMap.block) return ''
-  
-  const blocks = blockMap.block
-  const pageBlock = blocks[pageId]?.value
-  if (!pageBlock) return ''
-  
-  const contentIds = pageBlock.content || []
-  const htmlParts: string[] = []
-  
-  let currentListType: string | null = null
-  let listItems: string[] = []
-  
-  function flushList(): void {
-    if (listItems.length > 0) {
-      const tag = currentListType === 'numbered_list' || currentListType === 'numbered_list_item' ? 'ol' : 'ul'
-      htmlParts.push(`<${tag}>${listItems.join('')}</${tag}>`)
-      listItems = []
-      currentListType = null
-    }
-  }
-  
-  for (const blockId of contentIds) {
-    const block = blocks[blockId]?.value
-    if (!block) continue
-    
-    const type = block.type || ''
-    const html = blockToHtml(block)
-    
-    // Handle list grouping
-    if (type === 'bulleted_list' || type === 'bulleted_list_item' || 
-        type === 'numbered_list' || type === 'numbered_list_item' ||
-        type === 'to_do') {
-      if (currentListType && currentListType !== type && 
-          !((currentListType.includes('bulleted') && type.includes('bulleted')) ||
-            (currentListType.includes('numbered') && type.includes('numbered')))) {
-        flushList()
-      }
-      currentListType = type
-      if (html) listItems.push(html)
-    } else {
-      flushList()
-      if (html) htmlParts.push(html)
-    }
-    
-    // Handle nested content (for columns, etc.)
-    if (block.content && block.content.length > 0) {
-      for (const childId of block.content) {
-        const childBlock = blocks[childId]?.value
-        if (childBlock) {
-          const childHtml = blockToHtml(childBlock)
-          if (childHtml) {
-            const childType = childBlock.type || ''
-            if (childType.includes('list') || childType === 'to_do') {
-              if (currentListType && !currentListType.includes(childType.split('_')[0])) {
-                flushList()
-              }
-              currentListType = childType
-              listItems.push(childHtml)
-            } else {
-              flushList()
-              htmlParts.push(childHtml)
-            }
-          }
-        }
-      }
-    }
-  }
-  
-  flushList()
-  
-  return htmlParts.join('\n')
+  // Bold and italic
+  html = html.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+  html = html.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+  html = html.replace(/\*(.+?)\*/g, '<em>$1</em>')
+
+  // Strikethrough
+  html = html.replace(/~~(.+?)~~/g, '<del>$1</del>')
+
+  // Inline code
+  html = html.replace(/`([^`]+)`/g, '<code>$1</code>')
+
+  // Links
+  html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2">$1</a>')
+
+  // Images (remaining)
+  html = html.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, '<img src="$2" alt="$1" />')
+
+  // Code blocks
+  html = html.replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code class="language-$1">$2</code></pre>')
+
+  // Blockquotes
+  html = html.replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
+
+  // Horizontal rules
+  html = html.replace(/^---$/gm, '<hr />')
+
+  // Unordered lists
+  html = html.replace(/^- (.+)$/gm, '<li>$1</li>')
+
+  // Paragraphs (lines that don't start with HTML tags)
+  html = html.replace(/^(?!<[a-z/]|$)(.+)$/gm, '<p>$1</p>')
+
+  // Clean up empty lines
+  html = html.replace(/\n{2,}/g, '\n')
+
+  return html.trim()
 }
 
 /**
@@ -302,39 +97,62 @@ function renderBlocksToHtml(blockMap: BlockMap, pageId: string): string {
  */
 async function main(): Promise<void> {
   console.log('📰 Generating RSS feed...')
-  
-  // Check if cache exists
-  if (!fs.existsSync(POSTS_CACHE_FILE)) {
-    console.error('❌ Error: No cached posts found. Run `pnpm sync` first.')
+
+  if (!fs.existsSync(BLOG_DIR)) {
+    console.error('❌ Error: Blog Database/ directory not found.')
     process.exit(1)
   }
-  
-  // Load posts
-  const posts = JSON.parse(fs.readFileSync(POSTS_CACHE_FILE, 'utf-8')) as Post[]
-  console.log(`📄 Found ${posts.length} posts`)
-  
-  // Filter published posts (not pages, has slug, published status)
-  const publishedPosts = posts.filter(post => {
-    // Must have slug
-    if (!post.slug) return false
-    // Must not be a page type
-    if (post.type?.[0] === 'Page') return false
-    // Must be published
-    if (post.status?.[0] && post.status[0] !== 'Published') return false
-    return true
-  })
-  
+
+  // Read all markdown files
+  const files = fs.readdirSync(BLOG_DIR).filter(f => f.endsWith('.md'))
+  console.log(`📄 Found ${files.length} markdown files`)
+
+  interface PostEntry {
+    title: string
+    slug: string
+    summary: string
+    date: number
+    content: string
+  }
+
+  const posts: PostEntry[] = []
+
+  for (const file of files) {
+    const filePath = path.join(BLOG_DIR, file)
+    const raw = fs.readFileSync(filePath, 'utf-8')
+    const { data: fm, content } = matter(raw) as { data: FrontMatter; content: string }
+
+    const type = toStringArray(fm.type)
+    const status = toStringArray(fm.status)
+    const slug = fm.slug || file.replace(/\.md$/, '').toLowerCase().replace(/\s+/g, '-')
+
+    // Skip non-published or page type
+    if (type[0] === 'Page') continue
+    if (status[0] && status[0] !== 'Published') continue
+    if (!slug) continue
+
+    const date = fm.date ? new Date(fm.date).getTime() : 0
+
+    posts.push({
+      title: fm.title || file.replace(/\.md$/, ''),
+      slug,
+      summary: fm.summary || '',
+      date,
+      content
+    })
+  }
+
   // Sort by date (newest first) and take top 20
-  publishedPosts.sort((a, b) => (b.date || 0) - (a.date || 0))
-  const feedPosts = publishedPosts.slice(0, 20)
-  
+  posts.sort((a, b) => b.date - a.date)
+  const feedPosts = posts.slice(0, 20)
+
   console.log(`📝 Including ${feedPosts.length} posts in feed`)
-  
+
   // Create feed
   const year = new Date().getFullYear()
   const siteUrl = BLOG.link || 'https://example.com'
   const sitePath = BLOG.path || ''
-  
+
   const feed = new Feed({
     title: BLOG.title || 'Blog',
     description: BLOG.description || '',
@@ -352,33 +170,17 @@ async function main(): Promise<void> {
       atom: `${siteUrl}/feed.xml`
     }
   })
-  
+
   // Add posts to feed
   for (const post of feedPosts) {
-    let content = ''
-    
-    // Try to load block content
-    const blockFile = path.join(BLOCKS_DIR, `${post.id}.json`)
-    if (fs.existsSync(blockFile)) {
-      try {
-        const blockMap = JSON.parse(fs.readFileSync(blockFile, 'utf-8')) as BlockMap
-        content = renderBlocksToHtml(blockMap, post.id)
-      } catch {
-        console.log(`   ⚠️ Could not render blocks for: ${post.title}`)
-      }
-    }
-    
-    // Fallback to summary if no content
-    if (!content && post.summary) {
-      content = `<p>${post.summary}</p>`
-    }
-    
+    const htmlContent = markdownToHtml(post.content)
+
     feed.addItem({
-      title: post.title || 'Untitled',
+      title: post.title,
       id: `${siteUrl}/${post.slug}`,
       link: `${siteUrl}/${post.slug}`,
-      description: post.summary || '',
-      content: content,
+      description: post.summary,
+      content: htmlContent || `<p>${post.summary}</p>`,
       date: new Date(post.date || Date.now()),
       author: [{
         name: BLOG.author || 'Author',
@@ -387,17 +189,17 @@ async function main(): Promise<void> {
       }]
     })
   }
-  
+
   // Ensure public directory exists
   const publicDir = path.join(process.cwd(), 'public')
   if (!fs.existsSync(publicDir)) {
     fs.mkdirSync(publicDir, { recursive: true })
   }
-  
+
   // Write feed
   const atomXml = feed.atom1()
   fs.writeFileSync(OUTPUT_FILE, atomXml)
-  
+
   console.log(`✅ RSS feed generated: ${OUTPUT_FILE}`)
   console.log(`   - Format: Atom 1.0`)
   console.log(`   - Posts: ${feedPosts.length}`)

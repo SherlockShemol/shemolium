@@ -1,16 +1,14 @@
 import Image from 'next/image'
 import cn from 'classnames'
 import { useConfig } from '@/lib/config'
-import useTheme from '@/lib/theme'
 import FormattedDate from '@/components/FormattedDate'
 import TagItem from '@/components/TagItem'
-import NotionRenderer from '@/components/NotionRenderer'
-import TableOfContents from '@/components/TableOfContents'
-import type { Post as PostType, ExtendedRecordMap } from '@/types'
+import MarkdownRenderer from '@/components/MarkdownRenderer'
+import type { Post as PostType } from '@/types'
 
 interface PostProps {
   post: PostType
-  blockMap: ExtendedRecordMap
+  content: string
   emailHash: string
   fullWidth?: boolean
 }
@@ -20,8 +18,7 @@ interface PostProps {
  */
 export default function Post(props: PostProps) {
   const BLOG = useConfig()
-  const { post, blockMap, emailHash, fullWidth = false } = props
-  const { dark } = useTheme()
+  const { post, content, emailHash, fullWidth = false } = props
 
   return (
     <article className={cn('flex flex-col', fullWidth ? 'md:px-24' : 'items-center')}>
@@ -61,15 +58,13 @@ export default function Post(props: PostProps) {
           )}
         </nav>
       )}
-      <div className="self-stretch -mt-4 flex flex-col items-center lg:flex-row lg:items-stretch">
+      <div className={cn('self-stretch flex flex-col items-center lg:flex-row lg:items-stretch', post.type[0] === 'Page' ? 'mt-6' : '-mt-4')}>
         {!fullWidth && <div className="flex-1 hidden lg:block" />}
         <div className={fullWidth ? 'flex-1 pr-4' : 'flex-none w-full max-w-2xl px-4'}>
-          <NotionRenderer recordMap={blockMap} fullPage={false} darkMode={dark} />
+          <MarkdownRenderer content={content} />
         </div>
         <div className={cn('order-first lg:order-[unset] w-full lg:w-auto max-w-2xl lg:max-w-[unset] lg:min-w-[160px]', fullWidth ? 'flex-none' : 'flex-1')}>
-          {/* `65px` is the height of expanded nav */}
-          {/* TODO: Remove the magic number */}
-          <TableOfContents blockMap={blockMap} className="pt-3 sticky" style={{ top: '65px' }} />
+          {/* TOC not available for markdown rendering — could be added later */}
         </div>
       </div>
     </article>

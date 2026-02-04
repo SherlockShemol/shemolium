@@ -1,5 +1,3 @@
-import 'prismjs/themes/prism.css'
-import 'react-notion-x/src/styles.css'
 import 'katex/dist/katex.min.css'
 import { useEffect, useState } from 'react'
 import '@/styles/globals.css'
@@ -34,11 +32,11 @@ const defaultLocales: Record<string, Locale> = {
 
 export default function MyApp({ Component, pageProps }: AppProps) {
   const [config] = useState(staticConfig)
-  
+
   // Use config's default language for initial render (consistent between server and client)
   const defaultLang = staticConfig.lang
   const defaultLocale = defaultLocales[defaultLang] || (enUS as Locale)
-  
+
   const [currentLang, setCurrentLang] = useState<string>(defaultLang)
   const [currentLocale, setCurrentLocale] = useState<Locale>(defaultLocale)
 
@@ -46,10 +44,10 @@ export default function MyApp({ Component, pageProps }: AppProps) {
   useEffect(() => {
     // Prepare dayjs with timezone
     prepareDayjs(staticConfig.timezone)
-    
+
     // Get client-side language preference (from localStorage or browser)
     const clientLang = getClientLang(staticConfig.lang)
-    
+
     // Only switch if different from default
     if (clientLang !== defaultLang) {
       const newLocale = defaultLocales[clientLang]

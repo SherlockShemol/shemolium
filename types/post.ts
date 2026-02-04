@@ -1,5 +1,3 @@
-import type { ExtendedRecordMap } from './notion'
-
 export interface PostDate {
   start_date?: string
 }
@@ -25,9 +23,6 @@ export interface Post {
   author?: PostAuthor[]
 }
 
-export interface PostWithBlocks extends Post {
-  blockMap: ExtendedRecordMap
+export interface PostWithContent extends Post {
+  content: string
 }
-
-// Re-export ExtendedRecordMap for convenience
-export type { ExtendedRecordMap }

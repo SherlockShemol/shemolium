@@ -3,7 +3,7 @@ import { clientConfig } from '@/lib/server/config'
 import { useRouter } from 'next/router'
 import { useMemo } from 'react'
 import cn from 'classnames'
-import { getAllPosts, getPostBlocks } from '@/lib/notion'
+import { getAllPosts, getPostContent } from '@/lib/notion'
 import { useLocale } from '@/lib/locale'
 import { useConfig } from '@/lib/config'
 import { createHash } from 'crypto'
@@ -11,7 +11,7 @@ import Container from '@/components/Container'
 import Post from '@/components/Post'
 import Comments from '@/components/Comments'
 import type { GetStaticProps, GetStaticPaths, InferGetStaticPropsType } from 'next'
-import type { Post as PostType, ExtendedRecordMap } from '@/types'
+import type { Post as PostType } from '@/types'
 
 /**
  * Select the appropriate post based on current language
@@ -20,14 +20,14 @@ function useLocalizedPost(posts: PostType[], lang: string): PostType | null {
   return useMemo(() => {
     if (!posts || posts.length === 0) return null
     if (posts.length === 1) return posts[0]
-    
+
     // Find post matching current language
     const localizedPost = posts.find(post => {
       const postLangs = post.lang
       if (!postLangs || postLangs.length === 0) return false
       return postLangs.includes(lang)
     })
-    
+
     // Return localized post or fallback to first post
     return localizedPost || posts[0]
   }, [posts, lang])
@@ -35,21 +35,21 @@ function useLocalizedPost(posts: PostType[], lang: string): PostType | null {
 
 interface BlogPostPageProps {
   posts: PostType[]
-  blockMaps: Record<string, ExtendedRecordMap>
+  contents: Record<string, string>
   emailHash: string
 }
 
-export default function BlogPostPage({ posts, blockMaps, emailHash }: InferGetStaticPropsType<typeof getStaticProps>) {
+export default function BlogPostPage({ posts, contents, emailHash }: InferGetStaticPropsType<typeof getStaticProps>) {
   const router = useRouter()
   const BLOG = useConfig()
   const { locale, lang } = useLocale()
-  
+
   // Select the appropriate post based on current language
   const post = useLocalizedPost(posts, lang)
-  const blockMap = post ? blockMaps[post.id] : null
+  const content = post ? contents[post.id] : null
 
   // TODO: It would be better to render something
-  if (router.isFallback || !post || !blockMap) return null
+  if (router.isFallback || !post || !content) return null
 
   const fullWidth = post.fullWidth ?? false
 
@@ -65,7 +65,7 @@ export default function BlogPostPage({ posts, blockMaps, emailHash }: InferGetSt
     >
       <Post
         post={post}
-        blockMap={blockMap}
+        content={content}
         emailHash={emailHash}
         fullWidth={fullWidth}
       />
@@ -123,15 +123,15 @@ export const getStaticProps: GetStaticProps<BlogPostPageProps, { slug: string }>
 
   if (!posts || posts.length === 0) return { notFound: true }
 
-  // Fetch block maps for all language versions
-  const blockMaps: Record<string, ExtendedRecordMap> = {}
+  // Fetch markdown content for all language versions
+  const contents: Record<string, string> = {}
   for (const post of posts) {
-    const blocks = await getPostBlocks(post.id)
-    if (blocks) {
-      blockMaps[post.id] = blocks
+    const content = await getPostContent(post.slug)
+    if (content) {
+      contents[post.id] = content
     }
   }
-  
+
   const emailHash = createHash('md5')
     .update(clientConfig.email)
     .digest('hex')
@@ -139,7 +139,7 @@ export const getStaticProps: GetStaticProps<BlogPostPageProps, { slug: string }>
     .toLowerCase()
 
   return {
-    props: { posts, blockMaps, emailHash },
+    props: { posts, contents, emailHash },
     revalidate: 60
   }
 }

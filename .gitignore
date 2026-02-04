@@ -41,8 +41,12 @@ public/feed.xml
 
 # mock data (stub file is committed, local dev version can override)
 
-# Notion cache (synced from Notion for local development)
+# Notion cache (legacy)
 .cache/
+
+# Blog images (served from Cloudflare R2, not needed locally)
+_assets/
+public/images/
 
 # build artifacts
 nobelium@*
@@ -52,4 +56,7 @@ node
 .cursor
 
 .playwright-mcp/
+
+# Cloudflare Workers / Wrangler
+.wrangler/
 

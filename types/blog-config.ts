@@ -71,8 +71,8 @@ export interface BlogConfig {
   ogImageGenerateURL: string
   socialLink: string
   seo: SEOConfig
-  notionPageId: string | undefined
-  notionAccessToken: string | undefined
+  notionPageId?: string | undefined
+  notionAccessToken?: string | undefined
   analytics: AnalyticsConfig
   comment: CommentConfig
   isProd: boolean
