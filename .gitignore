@@ -18,8 +18,7 @@
 # misc
 .DS_Store
 .idea
-.vscode/*
-!.vscode/extensions.json
+.vscode/
 *.pem
 
 # debug
