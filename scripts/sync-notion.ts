@@ -74,7 +74,7 @@ interface NotionSchema {
   }
 }
 
-// Load environment variables from .env.local
+// Load environment variables from .env.local (only if not already set)
 function loadEnv(): void {
   const envPath = path.join(process.cwd(), '.env.local')
   if (fs.existsSync(envPath)) {
@@ -84,7 +84,8 @@ function loadEnv(): void {
       if (trimmed && !trimmed.startsWith('#')) {
         const [key, ...valueParts] = trimmed.split('=')
         const value = valueParts.join('=').replace(/^["']|["']$/g, '')
-        if (key && value) {
+        // Only set if not already defined (prefer system env vars)
+        if (key && value && !process.env[key]) {
           process.env[key] = value
         }
       }
