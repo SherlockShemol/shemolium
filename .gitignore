@@ -52,5 +52,5 @@ node
 # 
 .cursor
 
-.playwright-mcp
+.playwright-mcp/
 

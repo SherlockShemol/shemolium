@@ -1,16 +1,16 @@
 {
-  "name": "nobelium",
-  "version": "1.3.0",
-  "homepage": "https://nobelium.js.org",
+  "name": "shemolium",
+  "version": "1.0.0",
+  "homepage": "https://shemol.tech",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/craigary/nobelium.git"
+    "url": "https://github.com/SherlockShemol/shemolium.git"
   },
   "author": {
-    "name": "Craig Hart",
-    "email": "i@craigary.net",
-    "url": "http://craigary.net"
+    "name": "Shemol",
+    "email": "shemol106@gmail.com",
+    "url": "https://shemol.tech"
   },
   "scripts": {
     "sync": "tsx scripts/sync-notion.ts",
@@ -59,8 +59,8 @@
     "typescript": "^5.9.3"
   },
   "bugs": {
-    "url": "https://github.com/craigary/nobelium/issues",
-    "email": "i@craigary.net"
+    "url": "https://github.com/SherlockShemol/shemolium/issues",
+    "email": "shemol106@gmail.com"
   },
   "pnpm": {
     "patchedDependencies": {
