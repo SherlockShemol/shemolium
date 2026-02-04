@@ -1,6 +1,7 @@
-<img src="./public/favicon.png" width="50" height="50" alt="Shemolium Logo">
-
-# Shemolium
+<div align="center">
+  <img src="./public/favicon.png" width="50" height="50" alt="Shemolium Logo">
+  <h1>Shemolium</h1>
+</div>
 
 A static blog built on top of Notion and Next.js, deployed on [Vercel](https://vercel.com).
 
