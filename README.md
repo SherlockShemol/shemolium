@@ -88,102 +88,102 @@ status: "Published"
 
 | Field | Required | Type | Description |
 |-------|----------|------|-------------|
-| `date` | ✅ | `string` | 发布日期，格式 `"YYYY-MM-DD"` |
-| `type` | ✅ | `string / string[]` | `"Post"`（博文）或 `"Page"`（独立页面如 About） |
-| `slug` | ✅ | `string` | URL 路径，如 `"my-post"` → `shemol.tech/my-post` |
-| `status` | ✅ | `string / string[]` | `"Published"`（发布）或 `"Draft"`（草稿，不显示） |
-| `summary` | 推荐 | `string` | 摘要，显示在首页文章列表 |
-| `tags` | 推荐 | `string[]` | 标签列表，用于分类和标签页 |
-| `lang` | 可选 | `string[]` | 语言，如 `[zh-CN]` 或 `[en-US]` |
-| `fullWidth` | 可选 | `boolean` | 是否全宽显示，默认 `false` |
+| `date` | ✅ | `string` | Publication date in `"YYYY-MM-DD"` format |
+| `type` | ✅ | `string / string[]` | `"Post"` (blog post) or `"Page"` (standalone page like About) |
+| `slug` | ✅ | `string` | URL path, e.g., `"my-post"` → `shemol.tech/my-post` |
+| `status` | ✅ | `string / string[]` | `"Published"` (published) or `"Draft"` (draft, hidden) |
+| `summary` | Recommended | `string` | Summary displayed in the post list on homepage |
+| `tags` | Recommended | `string[]` | Tag list for categorization and tag pages |
+| `lang` | Optional | `string[]` | Language, e.g., `[zh-CN]` or `[en-US]` |
+| `fullWidth` | Optional | `boolean` | Whether to display in full width, default `false` |
 
 ### 3. Post vs Page
 
-- **Post** (`type: "Post"`)：普通博文，显示在首页列表中，有作者、日期、标签
-- **Page** (`type: "Page"`)：独立页面（如 About、Friends），不在首页列表显示，通过 slug 直接访问
+- **Post** (`type: "Post"`): Regular blog post, shown in homepage list with author, date, and tags
+- **Page** (`type: "Page"`): Standalone page (e.g., About, Friends), not shown in homepage list, accessed directly via slug
 
 ### 4. Adding Images
 
-在 Markdown 中使用相对路径引用图片：
+Reference images using relative paths in Markdown:
 
 ```markdown
-![图片描述](../_assets/my-image_123456.png)
+![Image description](../_assets/my-image_123456.png)
 ```
 
-图片文件需要放在 `_assets/` 目录中。构建时，图片路径会自动被改写为 Cloudflare R2 URL。
+Image files should be placed in the `_assets/` directory. During build, image paths are automatically rewritten to Cloudflare R2 URLs.
 
 ### 5. Supported Markdown Features
 
-- **标准 Markdown**：标题、段落、粗体、斜体、链接、图片
-- **GFM（GitHub Flavored Markdown）**：表格、任务列表、删除线
-- **代码块**：支持语法高亮（通过 rehype-highlight）
-- **Mermaid 图表**：使用 ` ```mermaid ` 代码块
-- **换行**：单换行会被渲染为 `<br>`（与 Obsidian 行为一致）
-- **HTML**：支持内联 HTML
+- **Standard Markdown**: Headings, paragraphs, bold, italic, links, images
+- **GFM (GitHub Flavored Markdown)**: Tables, task lists, strikethrough
+- **Code blocks**: Syntax highlighting via rehype-highlight
+- **Mermaid diagrams**: Use ` ```mermaid ` code blocks
+- **Line breaks**: Single line breaks are rendered as `<br>` (consistent with Obsidian behavior)
+- **HTML**: Inline HTML is supported
 
 ---
 
 ## Image Hosting (Cloudflare R2)
 
-博客图片托管在 [Cloudflare R2](https://developers.cloudflare.com/r2/)，免费额度包括：
-- **存储**：10 GB/月
-- **读取**：1000 万次/月
-- **出站流量**：免费（不像 AWS S3）
+Blog images are hosted on [Cloudflare R2](https://developers.cloudflare.com/r2/), with free tier including:
+- **Storage**: 10 GB/month
+- **Reads**: 10 million requests/month
+- **Egress**: Free (unlike AWS S3)
 
 ### Upload Images
 
-当你添加了新图片到 `_assets/` 后，运行：
+After adding new images to `_assets/`, run:
 
 ```bash
 pnpm upload-images
 ```
 
-这个脚本会：
-1. 扫描 `Blog Database/` 中的所有 Markdown 文件
-2. 找出所有被引用的图片
-3. 将对应图片从 `_assets/` 上传到 Cloudflare R2
-4. 跳过未被引用的图片
+This script will:
+1. Scan all Markdown files in `Blog Database/`
+2. Find all referenced images
+3. Upload corresponding images from `_assets/` to Cloudflare R2
+4. Skip unreferenced images
 
 ### R2 Setup (First Time Only)
 
-如果你是第一次设置 R2：
+If you're setting up R2 for the first time:
 
-1. 注册 [Cloudflare](https://dash.cloudflare.com/)
-2. 创建 R2 存储桶（如 `blog-images`）
-3. 开启公开访问（Settings → Public access → R2.dev subdomain）
-4. 安装 Wrangler CLI：`npm install -g wrangler`
-5. 登录：`wrangler login`
+1. Sign up for [Cloudflare](https://dash.cloudflare.com/)
+2. Create an R2 bucket (e.g., `blog-images`)
+3. Enable public access (Settings → Public access → R2.dev subdomain)
+4. Install Wrangler CLI: `npm install -g wrangler`
+5. Login: `wrangler login`
 
 ### R2 URL Configuration
 
-R2 公开 URL 配置在以下文件中：
+R2 public URL is configured in the following files:
 
-- `lib/markdown/getPostContent.ts` — `R2_BASE_URL` 常量
-- `scripts/generate-rss.ts` — RSS 中的图片 URL
+- `lib/markdown/getPostContent.ts` — `R2_BASE_URL` constant
+- `scripts/generate-rss.ts` — Image URLs in RSS
 
-如果更换了 R2 域名，需同时修改这两个文件中的 URL。
+If you change the R2 domain, update the URLs in both files.
 
 ---
 
 ## Development
 
 ```bash
-# 安装依赖
+# Install dependencies
 pnpm install
 
-# 启动开发服务器（会自动验证内容）
+# Start development server (automatically validates content)
 pnpm dev
 
-# 启动开发服务器（跳过内容验证，更快）
+# Start development server (skip content validation, faster)
 pnpm dev:skip-sync
 
-# 上传新图片到 Cloudflare R2
+# Upload new images to Cloudflare R2
 pnpm upload-images
 
-# 生产构建
+# Production build
 pnpm build
 
-# 启动生产服务器
+# Start production server
 pnpm start
 ```
 
@@ -193,33 +193,33 @@ pnpm start
 
 ### Vercel (Recommended)
 
-1. Fork 或 push 此仓库到 GitHub
-2. 在 [Vercel](https://vercel.com) 中导入项目
-3. 设置构建命令为 `pnpm build`（默认即可）
-4. 部署
+1. Fork or push this repository to GitHub
+2. Import the project in [Vercel](https://vercel.com)
+3. Set build command to `pnpm build` (default is fine)
+4. Deploy
 
-之后每次 `git push` 都会自动触发 Vercel 重新构建和部署。
+Each `git push` will automatically trigger Vercel to rebuild and redeploy.
 
-### Workflow: 发布新文章
+### Workflow: Publishing a New Post
 
 ```bash
-# 1. 在 Blog Database/ 中写好 Markdown 文章
-# 2. 如果有新图片，放入 _assets/ 并上传到 R2
+# 1. Write Markdown post in Blog Database/
+# 2. If there are new images, put them in _assets/ and upload to R2
 pnpm upload-images
 
-# 3. 提交并推送
+# 3. Commit and push
 git add .
-git commit -m "New post: 文章标题"
+git commit -m "New post: Post Title"
 git push
 
-# 4. Vercel 自动部署 ✅
+# 4. Vercel auto-deploys ✅
 ```
 
-### Workflow: 删除文章
+### Workflow: Deleting a Post
 
-1. 删除 `Blog Database/` 中对应的 `.md` 文件
+1. Delete the corresponding `.md` file in `Blog Database/`
 2. `git commit && git push`
-3. R2 上的图片可以不删（不影响功能，只占存储）
+3. Images on R2 can be left (doesn't affect functionality, only takes storage)
 
 ---
 
@@ -229,17 +229,17 @@ git push
 
 | Field | Description | Default |
 |-------|-------------|---------|
-| `title` | 博客标题 | — |
-| `author` | 作者名 | — |
-| `email` | 用于 Gravatar 头像 | — |
-| `link` | 博客域名 | — |
-| `description` | 博客描述（SEO） | — |
-| `lang` | 默认语言 | `'zh-CN'` |
-| `postsPerPage` | 每页文章数 | `7` |
-| `sortByDate` | 按日期排序（新的在前） | `true` |
-| `showAbout` | 显示 About 页面 | `true` |
-| `showArchive` | 显示归档 | `true` |
-| `comment.provider` | 评论系统 | — |
+| `title` | Blog title | — |
+| `author` | Author name | — |
+| `email` | Email for Gravatar avatar | — |
+| `link` | Blog domain | — |
+| `description` | Blog description (SEO) | — |
+| `lang` | Default language | `'zh-CN'` |
+| `postsPerPage` | Posts per page | `7` |
+| `sortByDate` | Sort by date (newest first) | `true` |
+| `showAbout` | Show About page | `true` |
+| `showArchive` | Show archive | `true` |
+| `comment.provider` | Comment system | — |
 
 ---
 
